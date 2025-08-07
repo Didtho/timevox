@@ -134,26 +134,112 @@ main() {
     # Etape 1: Verification des prerequis
     check_prerequisites
     
-    # Etape 2: Mise a jour du systeme
+    # Etape 2: Mise a jour du systeme et configuration
     print_header ""
     print_header "=== Mise a jour du systeme ==="
     print_status "Mise a jour de la liste des paquets..."
     sudo apt update
     print_success "Liste des paquets mise a jour"
 
-    CONFIG_FILE="/boot/firmware/config.txt"
-    echo "Mise à jour de /boot/firmware/config.txt..."
-	
-	# Activer les interfaces necessaires
-	sudo grep -q '^dtparam=i2c_arm=on' "$CONFIG_FILE" || echo 'dtparam=i2c_arm=on' | sudo tee -a "$CONFIG_FILE"
-	sudo grep -q '^dtparam=i2s=on' "$CONFIG_FILE" || echo 'dtparam=i2s=on' | sudo tee -a "$CONFIG_FILE"
-	sudo grep -q '^dtoverlay=hifiberry-dac' "$CONFIG_FILE" || echo 'dtoverlay=hifiberry-dac' | sudo tee -a "$CONFIG_FILE"
-	sudo grep -q '^dtoverlay=i2c-rtc,ds3231' "$CONFIG_FILE" || echo 'dtoverlay=i2c-rtc,ds3231' | sudo tee -a "$CONFIG_FILE"
-	
-	# Optionnel : desactiver l'audio HDMI si besoin
-	# sudo sed -i '/^dtparam=audio=on/s/^/#/' "$CONFIG_FILE"
+    # Configuration du fichier config.txt
+    print_status "Configuration des interfaces materielles..."
+    
+    # Detecter le bon chemin du fichier config.txt selon la version de Raspberry Pi OS
+    if [ -f "/boot/firmware/config.txt" ]; then
+        CONFIG_FILE="/boot/firmware/config.txt"
+        print_status "Utilisation de /boot/firmware/config.txt (Raspberry Pi OS recent)"
+    elif [ -f "/boot/config.txt" ]; then
+        CONFIG_FILE="/boot/config.txt"
+        print_status "Utilisation de /boot/config.txt (Raspberry Pi OS ancien)"
+    else
+        print_error "Fichier config.txt non trouve"
+        exit 1
+    fi
 
-	echo "Mise à jour de /boot/firmware/config.txt terminee, redémarrage necessaire pour appliquer les changements."
+    print_status "Mise a jour de $CONFIG_FILE..."
+    
+    # Sauvegarder le fichier original
+    sudo cp "$CONFIG_FILE" "${CONFIG_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
+    
+    # Fonction pour ajouter ou modifier une ligne dans config.txt
+    update_config_line() {
+        local line="$1"
+        local file="$2"
+        local key=$(echo "$line" | cut -d'=' -f1)
+        
+        if sudo grep -q "^${key}=" "$file"; then
+            # La ligne existe, la remplacer
+            sudo sed -i "s/^${key}=.*/${line}/" "$file"
+            print_status "Mis a jour: $line"
+        elif sudo grep -q "^#${key}=" "$file"; then
+            # La ligne existe mais est commentee, la remplacer
+            sudo sed -i "s/^#${key}=.*/${line}/" "$file"
+            print_status "Active: $line"
+        else
+            # La ligne n'existe pas, l'ajouter
+            echo "$line" | sudo tee -a "$file" >/dev/null
+            print_status "Ajoute: $line"
+        fi
+    }
+    
+    # Fonction pour ajouter une ligne dtoverlay uniquement si elle n'existe pas
+    add_overlay_if_missing() {
+        local overlay="$1"
+        local file="$2"
+        
+        if ! sudo grep -q "^${overlay}" "$file" && ! sudo grep -q "^#${overlay}" "$file"; then
+            echo "$overlay" | sudo tee -a "$file" >/dev/null
+            print_status "Ajoute: $overlay"
+        else
+            # Si elle existe mais est commentee, l'activer
+            if sudo grep -q "^#${overlay}" "$file"; then
+                sudo sed -i "s/^#${overlay}/${overlay}/" "$file"
+                print_status "Active: $overlay"
+            else
+                print_status "Deja present: $overlay"
+            fi
+        fi
+    }
+    
+    # Appliquer les configurations necessaires pour TimeVox
+    update_config_line "dtparam=i2c_arm=on" "$CONFIG_FILE"
+    update_config_line "dtparam=i2s=on" "$CONFIG_FILE"
+    update_config_line "dtparam=spi=on" "$CONFIG_FILE"
+    update_config_line "dtparam=audio=off" "$CONFIG_FILE"  # Desactiver l'audio HDMI/Jack
+    
+    # Ajouter les overlays s'ils n'existent pas
+    add_overlay_if_missing "dtoverlay=hifiberry-dac" "$CONFIG_FILE"
+    add_overlay_if_missing "dtoverlay=i2c-rtc,ds3231" "$CONFIG_FILE"
+    
+    print_success "Configuration materielle mise a jour dans $CONFIG_FILE"
+    
+    # Activer i2c via raspi-config de maniere non-interactive
+    print_status "Activation de l'interface I2C..."
+    sudo raspi-config nonint do_i2c 0  # 0 = enable, 1 = disable
+    if [ $? -eq 0 ]; then
+        print_success "Interface I2C activee"
+    else
+        print_warning "Echec activation I2C automatique, activation manuelle..."
+        # Methode alternative: modifier directement le fichier de config
+        sudo sed -i 's/^#dtparam=i2c_arm=on/dtparam=i2c_arm=on/' "$CONFIG_FILE"
+        # Ajouter le module au demarrage
+        echo 'i2c-dev' | sudo tee -a /etc/modules
+    fi
+    
+    # Activer SPI si necessaire
+    print_status "Activation de l'interface SPI..."
+    sudo raspi-config nonint do_spi 0
+    if [ $? -eq 0 ]; then
+        print_success "Interface SPI activee"
+    else
+        print_warning "Echec activation SPI automatique"
+    fi
+    
+    # Verifier que les modules sont bien charges
+    if ! lsmod | grep -q "i2c_dev"; then
+        print_status "Chargement du module i2c-dev..."
+        sudo modprobe i2c-dev || print_warning "Impossible de charger i2c-dev maintenant (sera actif apres redemarrage)"
+    fi
  
     # Vérifier et installer Git si nécessaire
     if ! command -v git >/dev/null 2>&1; then
