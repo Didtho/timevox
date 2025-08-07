@@ -1,65 +1,182 @@
 # usb_manager.py
 """
 Gestionnaire de la clé USB pour le stockage des messages et annonces
-Version avec gestion de la durée d'enregistrement, volume audio et longueur du numéro principal configurables
+Version avec montage automatique et point de montage fixe
 """
 
 import os
 import json
 import random
+import subprocess
 from datetime import datetime
-from config import USB_MOUNT_PATH, RECORD_DURATION
+from config import RECORD_DURATION
 
 
 class USBManager:
     def __init__(self, rtc_manager=None):
         self.rtc_manager = rtc_manager  # Gestionnaire RTC optionnel
+        
+        # Point de montage fixe pour TimeVox
+        self.usb_mount_point = "/media/timevox/usb"
         self.usb_path = None
+        
+        # Configuration par défaut
         self.numero_principal = "1234567890"  # Valeur par défaut (10 chiffres)
         self.longueur_numero_principal = 10  # Valeur par défaut
         self.duree_enregistrement = RECORD_DURATION  # Valeur par défaut
         self.volume_audio = 2  # Valeur par défaut en pourcentage (2%)
+        
+        # Détection et configuration
         self.detect_usb_drive()
         self.load_config()
     
     def detect_usb_drive(self):
-        """Détecte la clé USB montée et retourne son chemin"""
+        """Détecte la clé USB au point de montage fixe"""
         try:
-            # Chercher dans les points de montage courants
-            mount_points = ["/media/pi", "/mnt", "/media"]
-
-            for mount_base in mount_points:
-                if os.path.exists(mount_base):
-                    for item in os.listdir(mount_base):
-                        usb_path = os.path.join(mount_base, item)
-                        if os.path.isdir(usb_path):
-                            # Vérifier si c'est notre clé en cherchant les dossiers Annonce et Messages
-                            annonce_dir = os.path.join(usb_path, "Annonce")
-                            messages_dir = os.path.join(usb_path, "Messages")
-                            if os.path.exists(annonce_dir) and os.path.exists(messages_dir):
-                                print(f"Clé USB détectée: {usb_path}")
-                                self.usb_path = usb_path
-                                return usb_path
-
-            # Méthode alternative: lire /proc/mounts
-            with open("/proc/mounts", "r") as f:
-                for line in f:
-                    parts = line.split()
-                    if len(parts) >= 3 and "vfat" in parts[2]:  # FAT32
-                        mount_point = parts[1]
-                        annonce_dir = os.path.join(mount_point, "Annonce")
-                        messages_dir = os.path.join(mount_point, "Messages")
-                        if os.path.exists(annonce_dir) and os.path.exists(messages_dir):
-                            print(f"Clé USB détectée via /proc/mounts: {mount_point}")
-                            self.usb_path = mount_point
-                            return mount_point
-
+            # Vérifier si le point de montage existe et est monté
+            if os.path.exists(self.usb_mount_point) and os.path.ismount(self.usb_mount_point):
+                # Vérifier la structure TimeVox
+                annonce_dir = os.path.join(self.usb_mount_point, "Annonce")
+                messages_dir = os.path.join(self.usb_mount_point, "Messages")
+                
+                if os.path.exists(annonce_dir) and os.path.exists(messages_dir):
+                    print(f"✅ Clé USB TimeVox détectée: {self.usb_mount_point}")
+                    self.usb_path = self.usb_mount_point
+                    self.ensure_usb_structure()
+                    return self.usb_mount_point
+                else:
+                    print(f"⚠️ Clé USB montée mais structure TimeVox incomplète")
+                    print(f"   Dossiers requis: Annonce/, Messages/")
+                    if os.path.exists(self.usb_mount_point):
+                        print(f"   Contenu actuel: {os.listdir(self.usb_mount_point)}")
+                    # Essayer de créer la structure
+                    self.create_usb_structure()
+                    return None
+            else:
+                print(f"❌ Aucune clé USB montée sur {self.usb_mount_point}")
+                self.trigger_usb_detection()
+                return None
+                
         except Exception as e:
             print(f"Erreur détection clé USB: {e}")
-
-        print("Clé USB non détectée")
-        self.usb_path = None
-        return None
+            self.usb_path = None
+            return None
+    
+    def trigger_usb_detection(self):
+        """Déclenche une nouvelle détection des périphériques USB"""
+        try:
+            print("🔍 Recherche de périphériques USB...")
+            
+            # Lister les périphériques USB disponibles
+            result = subprocess.run(
+                ['lsblk', '-o', 'NAME,TRAN,TYPE,SIZE,MOUNTPOINT'], 
+                capture_output=True, text=True, timeout=5
+            )
+            
+            usb_devices = []
+            for line in result.stdout.split('\n'):
+                if 'usb' in line and 'part' in line:
+                    parts = line.split()
+                    if len(parts) >= 1:
+                        device_name = parts[0].strip('├─└│ ')
+                        usb_devices.append(device_name)
+            
+            if usb_devices:
+                print(f"💾 Périphériques USB détectés: {usb_devices}")
+                
+                # Essayer de monter le premier périphérique trouvé
+                for device in usb_devices:
+                    print(f"🔧 Tentative de montage automatique: {device}")
+                    try:
+                        subprocess.run(
+                            ['/usr/local/bin/timevox-usb-mount.sh', device],
+                            timeout=10
+                        )
+                        # Vérifier si le montage a réussi
+                        if os.path.ismount(self.usb_mount_point):
+                            print(f"✅ Montage réussi pour {device}")
+                            self.detect_usb_drive()  # Re-détecter
+                            break
+                    except subprocess.TimeoutExpired:
+                        print(f"⏰ Timeout lors du montage de {device}")
+                    except Exception as e:
+                        print(f"❌ Erreur montage {device}: {e}")
+            else:
+                print("❌ Aucun périphérique USB détecté")
+                
+        except Exception as e:
+            print(f"Erreur recherche USB: {e}")
+    
+    def ensure_usb_structure(self):
+        """S'assurer que la structure de dossiers TimeVox existe"""
+        if not self.usb_path:
+            return False
+        
+        required_dirs = ["Annonce", "Messages", "Parametres", "Logs"]
+        
+        try:
+            for dir_name in required_dirs:
+                dir_path = os.path.join(self.usb_path, dir_name)
+                if not os.path.exists(dir_path):
+                    os.makedirs(dir_path)
+                    print(f"📁 Dossier créé: {dir_name}")
+            
+            print("✅ Structure USB TimeVox vérifiée")
+            return True
+            
+        except Exception as e:
+            print(f"Erreur création structure USB: {e}")
+            return False
+    
+    def create_usb_structure(self):
+        """Crée la structure TimeVox sur une clé USB vide"""
+        if not os.path.exists(self.usb_mount_point):
+            print("❌ Point de montage inexistant")
+            return False
+        
+        try:
+            print("🏗️ Création de la structure TimeVox...")
+            
+            # Créer les dossiers requis
+            required_dirs = ["Annonce", "Messages", "Parametres", "Logs"]
+            for dir_name in required_dirs:
+                dir_path = os.path.join(self.usb_mount_point, dir_name)
+                os.makedirs(dir_path, exist_ok=True)
+                print(f"📁 Dossier créé: {dir_name}")
+            
+            # Créer un fichier README
+            readme_path = os.path.join(self.usb_mount_point, "README.txt")
+            with open(readme_path, 'w', encoding='utf-8') as f:
+                f.write("TimeVox - Structure de la clé USB\n")
+                f.write("==================================\n\n")
+                f.write("Annonce/  : Fichiers MP3 d'annonce (lus aléatoirement)\n")
+                f.write("Messages/ : Messages vocaux enregistrés (organisés par date)\n")
+                f.write("Parametres/ : Fichier config.json pour la configuration\n")
+                f.write("Logs/     : Logs du système\n\n")
+                f.write("Pour plus d'informations: https://github.com/Didtho/timevox\n")
+            
+            self.usb_path = self.usb_mount_point
+            self.create_default_config()
+            
+            print("✅ Structure TimeVox créée avec succès")
+            return True
+            
+        except Exception as e:
+            print(f"Erreur création structure: {e}")
+            return False
+    
+    def reload_usb_detection(self):
+        """Recharge la détection USB (utile après insertion/retrait)"""
+        print("🔄 Rechargement détection USB...")
+        old_path = self.usb_path
+        self.detect_usb_drive()
+        
+        if old_path != self.usb_path:
+            if self.usb_path:
+                print(f"🔄 Nouvelle clé USB détectée: {self.usb_path}")
+                self.load_config()  # Recharger la config
+            else:
+                print("🔄 Clé USB déconnectée")
     
     def validate_numero_principal_config(self, numero, longueur):
         """Valide la cohérence entre le numéro principal et sa longueur déclarée"""
@@ -156,7 +273,7 @@ class USBManager:
                 else:
                     print("Clé 'volume_audio' non trouvée dans config.json - utilisation valeur par défaut (2%)")
                     
-                # Charger les paramètres de filtre vintage
+                # Charger les paramètres de filtre vintage (code existant inchangé)
                 if 'filtre_vintage' in config_data:
                     filtre_value = config_data['filtre_vintage']
                     if isinstance(filtre_value, bool):
@@ -256,7 +373,8 @@ class USBManager:
             "duree_enregistrement": self.duree_enregistrement,
             "volume_audio": self.volume_audio,
             "usb_path": self.usb_path,
-            "usb_available": self.is_usb_available()
+            "usb_available": self.is_usb_available(),
+            "usb_mount_point": self.usb_mount_point
         }
         
         # Ajouter les paramètres de filtre depuis le fichier config
@@ -290,12 +408,12 @@ class USBManager:
     
     def is_usb_available(self):
         """Vérifie si la clé USB est disponible"""
-        return self.usb_path is not None
+        return self.usb_path is not None and os.path.ismount(self.usb_mount_point)
     
     def get_announce_path(self):
         """Retourne le chemin vers un fichier d'annonce choisi au hasard"""
-        if not self.usb_path:
-            self.detect_usb_drive()
+        if not self.is_usb_available():
+            self.reload_usb_detection()
         
         if self.usb_path:
             announce_dir = os.path.join(self.usb_path, "Annonce")
@@ -331,8 +449,8 @@ class USBManager:
     
     def generate_message_filename(self, prefix="message", extension=".mp3"):
         """Génère un nom de fichier avec horodatage dans le dossier USB du jour"""
-        if not self.usb_path:
-            self.detect_usb_drive()
+        if not self.is_usb_available():
+            self.reload_usb_detection()
         
         if self.usb_path:
             # Créer le dossier Messages s'il n'existe pas
@@ -447,3 +565,42 @@ class USBManager:
         """Définit le gestionnaire RTC à utiliser"""
         self.rtc_manager = rtc_manager
         print("Gestionnaire RTC mis à jour dans USBManager")
+    
+    def get_usb_status(self):
+        """Retourne le statut détaillé de la clé USB"""
+        status = {
+            "mount_point": self.usb_mount_point,
+            "is_mounted": os.path.ismount(self.usb_mount_point) if os.path.exists(self.usb_mount_point) else False,
+            "usb_path": self.usb_path,
+            "is_available": self.is_usb_available(),
+            "has_structure": False
+        }
+        
+        if status["is_available"]:
+            # Vérifier la structure
+            required_dirs = ["Annonce", "Messages", "Parametres", "Logs"]
+            structure_ok = all(
+                os.path.exists(os.path.join(self.usb_path, dir_name)) 
+                for dir_name in required_dirs
+            )
+            status["has_structure"] = structure_ok
+            
+            # Compter les fichiers
+            try:
+                annonce_dir = os.path.join(self.usb_path, "Annonce")
+                if os.path.exists(annonce_dir):
+                    mp3_count = len([f for f in os.listdir(annonce_dir) if f.lower().endswith('.mp3')])
+                    status["announce_files"] = mp3_count
+                
+                messages_dir = os.path.join(self.usb_path, "Messages")
+                if os.path.exists(messages_dir):
+                    # Compter récursivement les fichiers de messages
+                    message_count = 0
+                    for root, dirs, files in os.walk(messages_dir):
+                        message_count += len([f for f in files if f.lower().endswith('.mp3')])
+                    status["message_files"] = message_count
+                    
+            except Exception as e:
+                print(f"Erreur comptage fichiers: {e}")
+        
+        return status

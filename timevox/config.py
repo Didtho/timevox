@@ -1,7 +1,7 @@
 # config.py
 """
 Configuration centralisée pour le projet TimeVox
-Version portable avec chemins relatifs et gestion flexible des numéros
+Version avec montage USB automatique
 """
 
 import os
@@ -33,8 +33,8 @@ SOUNDS_DIR = os.path.join(BASE_DIR, "sounds")
 SEARCH_CORRESPONDANT_FILE = os.path.join(SOUNDS_DIR, "search_correspondant.mp3")
 BIP_FILE = os.path.join(SOUNDS_DIR, "bip.mp3")
 
-# Chemins pour la clé USB
-USB_MOUNT_PATH = "/media/pi"
+# Configuration USB - Point de montage fixe pour le montage automatique
+USB_MOUNT_PATH = "/media/timevox/usb"  # Point de montage fixe pour TimeVox
 RECORD_DURATION = 60  # secondes (valeur par défaut, peut être surchargée par la config USB)
 
 # Configuration audio
@@ -91,7 +91,8 @@ def get_project_info():
         "base_dir": BASE_DIR,
         "sounds_dir": SOUNDS_DIR,
         "search_correspondant": SEARCH_CORRESPONDANT_FILE,
-        "bip": BIP_FILE
+        "bip": BIP_FILE,
+        "usb_mount_path": USB_MOUNT_PATH
     }
 
 def get_service_numbers():

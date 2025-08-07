@@ -141,6 +141,7 @@ main() {
     sudo apt update
     print_success "Liste des paquets mise a jour"
 
+    CONFIG_FILE="/boot/firmware/config.txt"
     echo "Mise à jour de /boot/firmware/config.txt..."
 	
 	# Activer les interfaces necessaires
@@ -219,6 +220,15 @@ main() {
         exit 1
     fi
     
+    # NOUVEAU: Configuration du montage automatique USB
+    print_status "Configuration du montage automatique USB..."
+    if ./scripts/install/setup-usb.sh; then
+        print_success "Montage automatique USB configure"
+    else
+        print_error "Echec configuration USB"
+        exit 1
+    fi
+    
     print_status "Installation des services systeme..."
     if ./scripts/install/setup-services.sh; then
         print_success "Services systeme installes"
@@ -259,7 +269,13 @@ main() {
     echo -e "${YELLOW}Informations importantes :${NC}"
     echo "- Repertoire d'installation: $INSTALL_DIR"
     echo "- Services installes: timevox, timevox-shutdown"
+    echo "- Point de montage USB automatique: /media/timevox/usb"
     echo "- Log d'installation: $LOG_FILE"
+    echo ""
+    echo -e "${YELLOW}Configuration automatique USB :${NC}"
+    echo "- Les clés USB seront automatiquement montées sur /media/timevox/usb"
+    echo "- Structure TimeVox créée automatiquement si nécessaire"
+    echo "- Support: FAT32, NTFS, exFAT, ext4"
     echo ""
     echo -e "${YELLOW}Prochaines etapes :${NC}"
     echo "1. Redemarrez le systeme: sudo reboot"
@@ -269,8 +285,10 @@ main() {
     echo ""
     echo -e "${YELLOW}Commandes utiles :${NC}"
     echo "- Voir les logs: sudo journalctl -u timevox -f"
+    echo "- Voir les logs USB: sudo tail -f /var/log/timevox-usb.log"
     echo "- Statut du service: sudo systemctl status timevox"
     echo "- Redemarrer TimeVox: sudo systemctl restart timevox"
+    echo "- Test USB: $INSTALL_DIR/scripts/install/setup-usb.sh status"
     echo ""
     echo -e "${CYAN}Support: https://github.com/Didtho/timevox${NC}"
     
