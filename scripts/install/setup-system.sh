@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 # setup-system.sh - Installation des dépendances système pour TimeVox
 
 set -e
@@ -61,6 +61,22 @@ SYSTEM_PACKAGES=(
     "sox"                    # Traitement audio en ligne de commande
     "libsndfile1"            # Bibliothèque pour fichiers audio
     
+    # Dépendances SDL2 pour pygame
+    "libsdl2-dev"
+    "libsdl2-image-dev" 
+    "libsdl2-mixer-dev"
+    "libsdl2-ttf-dev"
+
+    # Dépendances pour Pillow
+    "libjpeg-dev"
+    "libfreetype6-dev"
+    "liblcms2-dev"
+    "libopenjp2-7-dev"
+    "libtiff5-dev"
+    "tk-dev"
+    "libharfbuzz-dev"
+    "libfribidi-dev"
+
     # Systèmes et hardware
     "i2c-tools"              # Outils I2C pour l'OLED
     "python3-smbus"          # Interface Python pour I2C
