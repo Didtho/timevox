@@ -140,7 +140,20 @@ main() {
     print_status "Mise a jour de la liste des paquets..."
     sudo apt update
     print_success "Liste des paquets mise a jour"
-    
+
+    echo "Mise à jour de /boot/firmware/config.txt..."
+	
+	# Activer les interfaces necessaires
+	sudo grep -q '^dtparam=i2c_arm=on' "$CONFIG_FILE" || echo 'dtparam=i2c_arm=on' | sudo tee -a "$CONFIG_FILE"
+	sudo grep -q '^dtparam=i2s=on' "$CONFIG_FILE" || echo 'dtparam=i2s=on' | sudo tee -a "$CONFIG_FILE"
+	sudo grep -q '^dtoverlay=hifiberry-dac' "$CONFIG_FILE" || echo 'dtoverlay=hifiberry-dac' | sudo tee -a "$CONFIG_FILE"
+	sudo grep -q '^dtoverlay=i2c-rtc,ds3231' "$CONFIG_FILE" || echo 'dtoverlay=i2c-rtc,ds3231' | sudo tee -a "$CONFIG_FILE"
+	
+	# Optionnel : desactiver l'audio HDMI si besoin
+	# sudo sed -i '/^dtparam=audio=on/s/^/#/' "$CONFIG_FILE"
+
+	echo "Mise à jour de /boot/firmware/config.txt terminee, redémarrage necessaire pour appliquer les changements."
+ 
     # Vérifier et installer Git si nécessaire
     if ! command -v git >/dev/null 2>&1; then
         print_status "Installation de Git (requis pour le téléchargement)..."
