@@ -10,6 +10,7 @@ INSTALL_USER="timevox"
 INSTALL_DIR="/home/$INSTALL_USER/timevox"
 VENV_DIR="/home/$INSTALL_USER/timevox_env"
 LOG_FILE="/tmp/timevox_install.log"
+CONFIG_FILE="/boot/firmware/config.txt"
 
 # Couleurs pour l'affichage
 RED='\033[0;31m'
@@ -141,6 +142,19 @@ main() {
     sudo apt update
     print_success "Liste des paquets mise a jour"
     
+	echo "Mise à jour de /boot/firmware/config.txt..."
+	
+	# Activer les interfaces nécessaires
+	sudo grep -q '^dtparam=i2c_arm=on' "$CONFIG_FILE" || echo 'dtparam=i2c_arm=on' | sudo tee -a "$CONFIG_FILE"
+	sudo grep -q '^dtparam=i2s=on' "$CONFIG_FILE" || echo 'dtparam=i2s=on' | sudo tee -a "$CONFIG_FILE"
+	sudo grep -q '^dtoverlay=hifiberry-dac' "$CONFIG_FILE" || echo 'dtoverlay=hifiberry-dac' | sudo tee -a "$CONFIG_FILE"
+	sudo grep -q '^dtoverlay=i2c-rtc,ds3231' "$CONFIG_FILE" || echo 'dtoverlay=i2c-rtc,ds3231' | sudo tee -a "$CONFIG_FILE"
+	
+	# Optionnel : désactiver l'audio HDMI si besoin
+	# sudo sed -i '/^dtparam=audio=on/s/^/#/' "$CONFIG_FILE"
+
+	echo "Mise à jour de /boot/firmware/config.txt terminée, redémarrage nécessaire pour appliquer les changements."
+	
     # Vérifier et installer Git si nécessaire
     if ! command -v git >/dev/null 2>&1; then
         print_status "Installation de Git (requis pour le téléchargement)..."
