@@ -10,7 +10,7 @@ User=root
 Group=root
 
 # Dossier de travail réel
-WorkingDirectory=/home/didtho/timevox
+WorkingDirectory=/home/timevox/timevox/timevox
 
 # Définir un HOME isolé (évite les erreurs d'accès à /home/didtho/.xxx)
 Environment=HOME=/root
@@ -19,14 +19,14 @@ Environment=HOME=/root
 Environment=SDL_AUDIODRIVER=alsa
 Environment=ALSA_DEVICE=hw:0,0
 Environment=PYTHONUNBUFFERED=1
-Environment=PATH=/home/didtho/timevox_env/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/home/timevox/timevox_env/bin:/usr/local/bin:/usr/bin:/bin
 
 # Attente pour être sûr que l'audio est prêt
 ExecStartPre=/bin/sleep 10
 ExecStartPre=/bin/bash -c 'for i in {1..10}; do aplay -l >/dev/null 2>&1 && break || sleep 2; done'
 
 # Lancement du script Python
-ExecStart=/home/didtho/timevox_env/bin/python3 /home/didtho/timevox/main.py
+ExecStart=/home/timevox/timevox_env/bin/python3 /home/timevox/timevox/timevox//main.py
 
 # Redémarrage automatique en cas d'erreur
 Restart=always
