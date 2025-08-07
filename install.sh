@@ -153,7 +153,7 @@ main() {
 	# Optionnel : désactiver l'audio HDMI si besoin
 	# sudo sed -i '/^dtparam=audio=on/s/^/#/' "$CONFIG_FILE"
 
-	echo "Mise à jour de /boot/firmware/config.txt terminée, redémarrage nécessaire pour appliquer les changements."
+	echo "Mise à jour de /boot/firmware/config.txt terminee, redémarrage necessaire pour appliquer les changements."
 	
     # Vérifier et installer Git si nécessaire
     if ! command -v git >/dev/null 2>&1; then
