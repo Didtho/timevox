@@ -74,6 +74,31 @@ check_python_version() {
 create_virtual_environment() {
     print_status "Création de l'environnement virtuel..."
     
+    # Installer les dépendances système AVANT de créer le venv
+    print_status "Installation des paquets système nécessaires (pygame, pillow, luma...)"
+    sudo apt-get update
+    sudo apt-get install -y \
+        libsdl2-dev \
+        libsdl2-image-dev \
+        libsdl2-mixer-dev \
+        libsdl2-ttf-dev \
+        libportmidi-dev \
+        libporttime-dev \
+        libjpeg-dev \
+        libfreetype6-dev \
+        python3-dev \
+        libopenjp2-7 \
+        zlib1g-dev \
+        libtiff5 \
+        libatlas-base-dev
+	
+    if [ $? -eq 0 ]; then
+        print_success "Dépendances système installées"
+    else
+        print_error "Échec installation des paquets système"
+        return 1
+    fi
+	
     # Supprimer l'ancien environnement s'il existe
     if [ -d "$VENV_DIR" ]; then
         print_warning "Environnement virtuel existant détecté"
