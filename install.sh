@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 # install.sh - Script d'installation principal TimeVox
 # Usage: curl -sSL https://raw.githubusercontent.com/Didtho/timevox/main/install.sh | bash
 
