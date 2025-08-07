@@ -141,14 +141,14 @@ main() {
     sudo apt update
     print_success "Liste des paquets mise a jour"
     
-	# Vérifier et installer Git si nécessaire
-	if ! command -v git >/dev/null 2>&1; then
-		print_status "Installation de Git (requis pour le téléchargement)..."
-		sudo apt install -y git
-		print_success "Git installé"
-	else
-		print_success "Git déjà disponible"
-	fi
+    # Vérifier et installer Git si nécessaire
+    if ! command -v git >/dev/null 2>&1; then
+        print_status "Installation de Git (requis pour le téléchargement)..."
+        sudo apt install -y git
+        print_success "Git installé"
+    else
+        print_success "Git déjà disponible"
+    fi
 	
     # Etape 3: Telechargement du code source
     print_header ""
