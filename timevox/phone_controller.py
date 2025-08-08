@@ -2,6 +2,7 @@
 """
 Contrôleur principal du téléphone TimeVox
 Version avec durée d'enregistrement, volume audio et longueur du numéro principal configurables
+Version avec menu paramètres étendu et gestion des mises à jour
 """
 
 import time
@@ -15,7 +16,8 @@ from rtc_manager import RTCManager
 from config import TARGET_NUMBERS, SERVICE_NUMBERS
 import subprocess
 from datetime import datetime
-from filter_menu_manager import FilterMenuManager
+from params_menu_manager import ParamsMenuManager  # Nouveau nom
+from update_manager import UpdateManager
 
 
 class PhoneController:
@@ -66,27 +68,30 @@ class PhoneController:
             self.usb_manager  # Passer le gestionnaire USB
         )
         
-        # IMPORTANT: Initialiser le DialerManager AVANT FilterMenuManager
+        # IMPORTANT: Initialiser le DialerManager AVANT ParamsMenuManager
         self.dialer_manager = DialerManager(
             self.gpio_manager, 
             self.display_manager,
             self.usb_manager  # Passer le gestionnaire USB au lieu de la liste
         )
         
-        # MAINTENANT initialiser FilterMenuManager après que dialer_manager existe
-        self.filter_menu_manager = FilterMenuManager(
+        # MAINTENANT initialiser ParamsMenuManager (nouveau nom) après que dialer_manager existe
+        self.params_menu_manager = ParamsMenuManager(
             self.display_manager,
-            self.dialer_manager,      # Maintenant ça existe
+            self.dialer_manager,
             self.usb_manager,
             self.audio_manager,
             self.gpio_manager
         )
         
+        # Initialiser le gestionnaire de mises à jour
+        self.update_manager = UpdateManager(self.usb_manager)
+        
         # Affichage des informations de configuration
         config_info = self.usb_manager.get_config_info()
         print(f"=== CONFIGURATION TIMETVOX ===")
         print(f"Numéro principal: {config_info['numero_principal']} ({config_info['longueur_numero_principal']} chiffres)")
-        print(f"Numéros de service: {list(SERVICE_NUMBERS.keys())}")
+        print(f"Numéros de service: {list(SERVICE_NUMBERS.keys())}")  # Maintenant juste ["0000"]
         print(f"Durée d'enregistrement: {config_info['duree_enregistrement']}s")
         print(f"Volume audio: {config_info['volume_audio']}%")
 
@@ -103,6 +108,13 @@ class PhoneController:
         except:
             print(f"Filtre vintage: ❓ Non configuré")
 
+        # Affichage version actuelle
+        try:
+            current_version = self.update_manager.get_current_version()
+            print(f"Version TimeVox: {current_version}")
+        except:
+            print(f"Version TimeVox: Inconnue")
+
         print(f"Clé USB: {'✅ Détectée' if config_info['usb_available'] else '❌ Non détectée'}")
         print(f"RTC: {'✅ Opérationnel' if config_info.get('rtc_available', False) else '❌ Non disponible'}")
         print(f"Heure: {config_info.get('current_time', 'N/A')}")
@@ -110,10 +122,28 @@ class PhoneController:
         
         print("Initialisation terminée. Attente stabilisation...")
         time.sleep(5)
+        
+        # Vérifier les mises à jour au démarrage
+        self.check_updates_at_startup()
+        
         # Effacer le message d'initialisation
         self.display_manager.clear_display()
         
         print("Prêt à détecter un numéro fait au cadran.")
+    
+    def check_updates_at_startup(self):
+        """Vérifie s'il y a une mise à jour disponible au démarrage"""
+        try:
+            print("🔄 Vérification des mises à jour au démarrage...")
+            if self.update_manager.check_update_at_startup():
+                print("📢 Mise à jour disponible - affichage sur OLED")
+                from oled_display import afficher
+                afficher("", "MAJ disponible", "", taille=14, align="centre")
+                time.sleep(3)
+            else:
+                print("✅ Aucune mise à jour disponible")
+        except Exception as e:
+            print(f"Erreur vérification MAJ au démarrage: {e}")
     
     def handle_numero_principal(self):
         """Traite l'appel au numéro principal (annonce + enregistrement)"""
@@ -164,116 +194,13 @@ class PhoneController:
         else:
             print("📞 Téléphone raccroché - pas d'enregistrement")
     
-    def handle_number_3615(self):
-        """Traite l'appel au numéro 3615 (accès minitel)"""
-        self.gpio_manager.enable_sound()
-        print("📡 Accès minitel (3615)")
-        # TODO: Implémenter la fonctionnalité minitel
-        self.gpio_manager.disable_sound()
-    
     def handle_number_0000(self):
-        """Traite l'appel au numéro 0000 (accès paramètres/diagnostics)"""
+        """Traite l'appel au numéro 0000 (accès paramètres)"""
         self.gpio_manager.disable_sound()
-        print("🔧 Accès paramètres/diagnostics (0000)")
+        print("🔧 Accès paramètres (0000)")
         
-        # Menu de sélection
-        self.display_diagnostics_menu()
-        
-    def display_diagnostics_menu(self):
-        """Affiche le menu de diagnostic et paramètres"""
-        try:
-            from oled_display import afficher
-            
-            while self.gpio_manager.is_phone_off_hook():  # Boucle jusqu'à raccrochage ou choix valide
-                # Affichage du menu principal
-                afficher("Menu 0000", "1=Diagnostic", "2=Filtres", taille=11, align="centre")
-                print("🔧 Menu 0000 affiché - En attente de sélection...")
-                
-                # Reset de l'état du dialer avant d'attendre
-                self.dialer_manager.clear_dialing_state()
-                
-                # Petite pause pour stabiliser
-                time.sleep(0.5)
-                
-                # Attendre une sélection avec la méthode éprouvée
-                digit = self.dialer_manager.wait_for_menu_digit(timeout_seconds=15)
-                
-                if digit is None:
-                    # Timeout ou raccrochage
-                    print("⏰ Timeout ou raccrochage du menu 0000")
-                    afficher("Timeout", "", "", taille=12, align="centre")
-                    time.sleep(1)
-                    break  # Sortir de la boucle
-                
-                print(f"Menu 0000 - Chiffre reçu: {digit}")
-                
-                if digit == "1":
-                    # Diagnostics existants
-                    print("🔧 Accès diagnostics")
-                    self.show_rtc_diagnostics()
-                    break  # Sortir après traitement
-                elif digit == "2":
-                    # Menu des filtres
-                    print("🎛️ Accès menu filtres")
-                    self.filter_menu_manager.start_filter_menu()
-                    break  # Sortir après traitement
-                else:
-                    # Choix invalide - afficher message et reboucler
-                    print(f"❌ Choix invalide: {digit}")
-                    afficher("Choix invalide", "Recommencez...", "", taille=11, align="centre")
-                    time.sleep(2)
-                    # Continue la boucle pour réafficher le menu
-            
-        except Exception as e:
-            print(f"Erreur menu diagnostics: {e}")
-
-        
-    def show_rtc_diagnostics(self):
-        """Affiche les diagnostics RTC sur l'OLED"""
-        try:
-            from oled_display import afficher
-            
-            status_info = self.rtc_manager.get_status_info()
-            
-            # Affichage séquentiel des informations
-            afficher("Diagnostics", "TimeVox", "", taille=14, align="centre")
-            time.sleep(2)
-            
-            # État du RTC
-            rtc_status = "OK" if status_info['rtc_available'] else "NON"
-            afficher("Module RTC:", rtc_status, "", taille=12, align="centre")
-            time.sleep(2)
-            
-            # Validité de l'heure
-            time_status = "OK" if status_info['time_valid'] else "ERREUR"
-            afficher("Heure:", time_status, "", taille=12, align="centre")
-            time.sleep(2)
-            
-            # Afficher l'heure actuelle
-            current_time = self.rtc_manager.get_current_datetime()
-            date_str = current_time.strftime("%d/%m/%Y")
-            time_str = current_time.strftime("%H:%M:%S")
-            afficher(date_str, time_str, "", taille=11, align="centre")
-            time.sleep(3)
-            
-            # État de la clé USB
-            usb_status = "OK" if self.usb_manager.is_usb_available() else "NON"
-            afficher("Clé USB:", usb_status, "", taille=12, align="centre")
-            time.sleep(2)
-            
-            # Afficher le volume configuré
-            volume = self.usb_manager.get_volume_audio()
-            afficher("Volume:", f"{volume}%", "", taille=12, align="centre")
-            time.sleep(2)
-            
-            # Afficher les infos sur les numéros
-            numero_principal = self.usb_manager.get_numero_principal()
-            longueur = self.usb_manager.get_longueur_numero_principal()
-            afficher("Numero princ.:", numero_principal, f"({longueur} chiffres)", taille=10, align="centre")
-            time.sleep(3)
-            
-        except Exception as e:
-            print(f"Erreur diagnostics RTC: {e}")
+        # Nouveau menu de paramètres unifié
+        self.params_menu_manager.start_params_menu()
     
     def handle_phone_hangup(self):
         """Traite le raccrochage du téléphone"""
@@ -406,11 +333,8 @@ class PhoneController:
                             print(f"📞 Appel numéro principal: {completed_number}")
                             self.handle_numero_principal()
                         elif completed_number == "0000":
-                            print(f"🔧 Appel diagnostics: {completed_number}")
+                            print(f"🔧 Appel paramètres: {completed_number}")
                             self.handle_number_0000()
-                        elif completed_number == "3615":
-                            print(f"📡 Appel minitel: {completed_number}")
-                            self.handle_number_3615()
                         else:
                             print(f"❓ Numéro non géré: {completed_number}")
                         

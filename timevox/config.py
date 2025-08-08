@@ -21,12 +21,11 @@ TIMEOUT_RESET = 10
 
 # Numéros de service (fixes, courts) - vérifiés dès qu'on atteint leur longueur exacte
 SERVICE_NUMBERS = {
-    "3615": {"length": 4, "description": "Accès minitel"},
-    "0000": {"length": 4, "description": "Diagnostics/paramètres"}
+    "0000": {"length": 4, "description": "Paramètres système"}
 }
 
 # Numéros cibles pour compatibilité (sera enrichi dynamiquement avec le numéro principal)
-TARGET_NUMBERS = ["3615", "0000"]
+TARGET_NUMBERS = ["0000"]
 
 # Chemins de fichiers audio (relatifs au répertoire de l'application)
 SOUNDS_DIR = os.path.join(BASE_DIR, "sounds")

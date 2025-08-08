@@ -1,0 +1,18 @@
+{
+  "numero_principal": "1972",
+  "longueur_numero_principal": 4,
+  "duree_enregistrement": 30,
+  "volume_audio": 2,
+  "filtre_vintage": true,
+  "type_filtre": "radio_50s",
+  "intensite_filtre": 0.7,
+  "conserver_original": true,
+  "description": "Numéro pour lancer l'annonce et l'enregistrement de message - longueur configurable",
+  "volume_description": "Volume audio en pourcentage (0-100). 2 correspond à 2%.",
+  "longueur_description": "Longueur du numéro principal (doit correspondre au nombre de chiffres du numero_principal) 4 à 15 chiffres maximum",
+  "filtre_description": "Configuration des effets vintage",
+  "filtre_vintage_description": "Active/désactive les effets vintage (true/false)",
+  "type_filtre_description": "Type d'effet: 'aucun', 'radio_50s', 'telephone', 'gramophone'",
+  "intensite_filtre_description": "Intensité de l'effet (0.0 à 1.0). 0.7 = fort, 0.5 = modéré, 0.3 = léger",
+  "conserver_original_description": "Garde une copie du fichier original sans effet (true/false)"
+}
