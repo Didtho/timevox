@@ -59,7 +59,7 @@ CALL_ENDED_FONT_SIZE = 20
 # Messages d'affichage
 MSG_TIMEVOX = "TIMEVOX"
 MSG_CALLING = "Vous appelez le"
-MSG_SAVING = "Sauvegarde en cours..."
+MSG_SAVING = "Sauvegarde en cours"
 MSG_CALL_ENDED = "Appel termine"
 MSG_SECONDS = "secondes"
 

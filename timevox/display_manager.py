@@ -29,7 +29,7 @@ class DisplayManager:
 
     def show_countdown(self, seconds_remaining):
         """Affiche le compte à rebours pendant l'enregistrement"""
-        afficher_texte("", str(seconds_remaining), MSG_SECONDS,
+        afficher_texte("", str(seconds_remaining), "",  # Enlever MSG_SECONDS
                        taille=COUNTDOWN_FONT_SIZE, align="centre")
 
     def show_saving(self):
