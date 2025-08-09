@@ -299,7 +299,7 @@ Si TimeVox vous plaît, vous pouvez soutenir son développement :
 
 <div align="center">
 
-**Créé avec ❤️ par [Didtho](https://github.com/Didtho)**
+**Créé par [Didtho](https://github.com/Didtho)**
 
 *TimeVox - Quand la nostalgie rencontre l'innovation* 📞✨
 
