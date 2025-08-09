@@ -9,7 +9,9 @@
 
 **TimeVox** est un téléphone à cadran connecté qui capture les messages de vos invités avec une authenticité rétro. Parfait pour mariages, anniversaires et événements mémorables, il combine nostalgie et technologie moderne pour créer des souvenirs inoubliables.
 
-![TimeVox Banner](https://raw.githubusercontent.com/Didtho/timevox/main/docs/images/logo.png)
+<div align="center">
+  <img src="docs/images/logo.png" alt="TimeVox - Téléphone à Messages Vintage" width="150">
+</div>
 
 ## ✨ Fonctionnalités
 
