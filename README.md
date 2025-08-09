@@ -60,7 +60,6 @@ curl -sSL https://raw.githubusercontent.com/Didtho/timevox/main/install.sh | bas
 | **Téléphone à cadran** | Vintage | ~40€ |
 | **Raspberry Pi 0 2W** | Quad-core ARM, WiFi intégré | ~22€ |
 | **Carte micro SD** | 16Go classe 10 minimum | ~8€ |
-|-----------|-------------|-------------|
 | **Module RTC DS3231** | Horodatage précis sans internet | ~5€ |
 | **Amplificateur MAX98357A** | Audio I2S haute qualité | ~3€ |
 | **Écran OLED 128x64** | Affichage des informations | ~4€ |
