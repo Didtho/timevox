@@ -260,9 +260,26 @@ main() {
         mv "$INSTALL_DIR" "${INSTALL_DIR}_backup_$(date +%Y%m%d_%H%M%S)"
     fi
     
-    print_status "Clonage depuis GitHub..."
-    git clone "$REPO_URL" "$INSTALL_DIR"
-    print_success "Code source telecharge dans $INSTALL_DIR"
+    print_status "Téléchargement de la dernière release..."
+
+	# Récupérer l'URL de la dernière release
+	LATEST_RELEASE_URL=$(curl -s https://api.github.com/repos/Didtho/timevox/releases/latest | grep "zipball_url" | cut -d '"' -f 4)
+
+	if [ -z "$LATEST_RELEASE_URL" ]; then
+		print_warning "Impossible de récupérer la dernière release, utilisation de la branche main..."
+		git clone "$REPO_URL" "$INSTALL_DIR"
+	else
+		print_status "Téléchargement de la dernière release depuis: $LATEST_RELEASE_URL"
+		
+		# Télécharger et extraire la dernière release
+		cd /tmp
+		wget -O timevox-latest.zip "$LATEST_RELEASE_URL"
+		unzip -q timevox-latest.zip
+		mv Didtho-timevox-* "$INSTALL_DIR"
+		rm timevox-latest.zip
+		
+		print_success "Dernière release installée dans $INSTALL_DIR"
+	fi
     
     # Etape 4: Execution des scripts d'installation modulaires
     print_header ""
