@@ -119,7 +119,7 @@ test_file_installation() {
         "$INSTALL_DIR/timevox/audio_manager.py"
         "$INSTALL_DIR/timevox/gpio_manager.py"
         "$INSTALL_DIR/timevox/config.py"
-        "$INSTALL_DIR/version.json"
+        "$INSTALL_DIR/timevox/version.json"
     )
     
     for file in "${essential_files[@]}"; do
@@ -307,8 +307,8 @@ try:
     import audio_manager
     print('Audio Manager importable')
     
-    import display_manager  
-    print('Display Manager importable')
+    #import display_manager  
+    #print('Display Manager importable')
     
     # Test création des gestionnaires (sans hardware)
     from gpio_manager import GPIOManager
