@@ -335,6 +335,10 @@ class PhoneController:
                         elif completed_number == "0000":
                             print(f"🔧 Appel paramètres: {completed_number}")
                             self.handle_number_0000()
+                        elif completed_number == "9999":
+                            print(f"🔴 Extinction système demandée via cadran: {completed_number}")
+                            self.initiate_shutdown()
+                            break  # Sortir de la boucle principale
                         else:
                             print(f"❓ Numéro non géré: {completed_number}")
                         
