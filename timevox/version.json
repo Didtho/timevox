@@ -1,7 +1,7 @@
 {
-  "version": "1.0.4",
-  "last_update": "2025-08-11T12:00:00",
-  "install_date": "2025-08-11T12:00:00", 
+  "version": "1.0.5",
+  "last_update": "2025-08-17T12:00:00",
+  "install_date": "2025-08-17T12:00:00", 
   "description": "TimeVox - Téléphone à cadran avec messages vocaux",
   "repository": "https://github.com/Didtho/timevox"
 }
