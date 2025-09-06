@@ -21,7 +21,8 @@ TIMEOUT_RESET = 10
 
 # Numéros de service (fixes, courts) - vérifiés dès qu'on atteint leur longueur exacte
 SERVICE_NUMBERS = {
-    "0000": {"length": 4, "description": "Paramètres système"}
+    "0000": {"length": 4, "description": "Paramètres système"},
+    "9999": {"length": 4, "description": "Extinction système"}
 }
 
 # Numéros cibles pour compatibilité (sera enrichi dynamiquement avec le numéro principal)

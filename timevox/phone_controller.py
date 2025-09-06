@@ -323,26 +323,31 @@ class PhoneController:
                     # Traitement du cadran avec la nouvelle logique
                     completed_number = self.dialer_manager.process_dialing()
                     if completed_number:
-                        # Maintenir l'affichage du numéro pendant le traitement
-                        self.display_manager.show_calling_number(completed_number)
-                        
-                        # Traitement selon le type de numéro reconnu
-                        numero_principal = self.usb_manager.get_numero_principal()
-                        
-                        if completed_number == numero_principal:
-                            print(f"📞 Appel numéro principal: {completed_number}")
-                            self.handle_numero_principal()
-                        elif completed_number == "0000":
-                            print(f"🔧 Appel paramètres: {completed_number}")
-                            self.handle_number_0000()
-                        elif completed_number == "9999":
-                            print(f"🔴 Extinction système demandée via cadran: {completed_number}")
-                            self.initiate_shutdown()
-                            break  # Sortir de la boucle principale
-                        else:
-                            print(f"❓ Numéro non géré: {completed_number}")
-                        
-                        # Effacer seulement après traitement complet
+                    # Maintenir l'affichage du numéro pendant le traitement
+                    self.display_manager.show_calling_number(completed_number)
+                    
+                    # Traitement selon le type de numéro reconnu
+                    numero_principal = self.usb_manager.get_numero_principal()
+                    
+                    if completed_number == numero_principal:
+                        print(f"📞 Appel numéro principal: {completed_number}")
+                        self.handle_numero_principal()
+                    elif completed_number == "0000":
+                        print(f"🔧 Appel paramètres: {completed_number}")
+                        self.handle_number_0000()
+                    elif completed_number == "9999":
+                        print(f"🔴 Extinction système demandée via cadran: {completed_number}")
+                        # Afficher message sur écran
+                        self.display_manager.show_shutdown_message("Extinction...")
+                        time.sleep(1)
+                        # Lancer l'extinction immédiatement
+                        self.initiate_shutdown()
+                        break  # Sortir de la boucle principale
+                    else:
+                        print(f"❓ Numéro non géré: {completed_number}")
+                    
+                    # Effacer seulement après traitement complet (sauf pour 9999)
+                    if completed_number != "9999":
                         self.display_manager.clear_display()
 
                 time.sleep(0.005)  # Petite pause pour éviter la surcharge CPU
