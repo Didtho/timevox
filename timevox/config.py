@@ -69,7 +69,7 @@ MSG_SAVING = "Sauvegarde en cours"
 MSG_CALL_ENDED = "Appel terminé"
 MSG_SECONDS = "secondes"
 MSG_SPECIAL_NUMBER = "Numéro spécial"
-MSG_PLAYING_AUDIO = "Numéros abrégés"
+MSG_PLAYING_AUDIO = "Numéro abrégé"
 
 # Configuration des effets audio
 # ==============================
