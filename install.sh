@@ -331,6 +331,14 @@ main() {
         print_error "Echec configuration USB"
         exit 1
     fi
+	
+	print_status "Configuration de la copie des annonces sur cle USB..."
+    if ./scripts/install/setup-annonces-usb.sh; then
+        print_success "Copie annonces effectuee avec succes"
+    else
+        print_error "Echec copie annonces sur cle USB"
+        exit 1
+    fi
     
     print_status "Installation des services systeme..."
     if ./scripts/install/setup-services.sh; then

@@ -10,6 +10,7 @@ import random
 import subprocess
 from datetime import datetime
 from config import RECORD_DURATION
+import requests
 
 
 class USBManager:
@@ -43,6 +44,7 @@ class USBManager:
                     print(f"✅ Clé USB TimeVox détectée: {self.usb_mount_point}")
                     self.usb_path = self.usb_mount_point
                     self.ensure_usb_structure()
+                    self.download_missing_audio_files()
                     return self.usb_mount_point
                 else:
                     print(f"⚠️ Clé USB montée mais structure TimeVox incomplète")
@@ -122,6 +124,10 @@ class USBManager:
                     print(f"📁 Dossier créé: {dir_name}")
             
             print("✅ Structure USB TimeVox vérifiée")
+            
+            # NOUVEAU: Télécharger les fichiers audio manquants après avoir créé la structure
+            self.download_missing_audio_files()
+            
             return True
             
         except Exception as e:
@@ -608,3 +614,169 @@ class USBManager:
                 print(f"Erreur comptage fichiers: {e}")
         
         return status
+        
+    def download_missing_audio_files(self):
+        """
+        Télécharge les fichiers audio manquants depuis GitHub au démarrage
+        Vérifie si les fichiers sont présents et les télécharge seulement s'ils manquent
+        """
+        if not self.is_usb_available():
+            print("Clé USB non disponible - pas de téléchargement audio")
+            return False
+        
+        try:
+            print("🎵 Vérification des fichiers audio...")
+            
+            # Configuration GitHub
+            github_base_url = "https://raw.githubusercontent.com/Didtho/timevox/main"
+            special_files = ["12.mp3", "13.mp3", "14.mp3", "17.mp3", "18.mp3"]
+            default_announce_file = "annonce_defaut.mp3"
+            
+            # Chemins des dossiers
+            annonce_dir = os.path.join(self.usb_path, "Annonce")
+            special_dir = os.path.join(self.usb_path, "Numeros speciaux")
+            
+            # Créer les dossiers s'ils n'existent pas
+            os.makedirs(annonce_dir, exist_ok=True)
+            os.makedirs(special_dir, exist_ok=True)
+            
+            # Vérifier si au moins un fichier MP3 existe dans Annonce
+            annonce_has_mp3 = False
+            if os.path.exists(annonce_dir):
+                mp3_files = [f for f in os.listdir(annonce_dir) if f.lower().endswith('.mp3')]
+                if mp3_files:
+                    annonce_has_mp3 = True
+                    print(f"📢 {len(mp3_files)} fichier(s) d'annonce déjà présent(s)")
+            
+            # Vérifier quels fichiers spéciaux sont manquants
+            missing_special_files = []
+            if os.path.exists(special_dir):
+                for special_file in special_files:
+                    file_path = os.path.join(special_dir, special_file)
+                    if not os.path.exists(file_path):
+                        missing_special_files.append(special_file)
+            else:
+                missing_special_files = special_files.copy()
+            
+            if missing_special_files:
+                print(f"🎶 {len(missing_special_files)} fichier(s) spécial(aux) manquant(s): {missing_special_files}")
+            else:
+                print("✅ Tous les fichiers spéciaux sont présents")
+            
+            # Si tous les fichiers sont présents, pas besoin de télécharger
+            if annonce_has_mp3 and not missing_special_files:
+                print("✅ Tous les fichiers audio sont présents")
+                return True
+            
+            # Vérifier la connexion internet
+            if not self._check_internet_connection():
+                self.save_event_log("AUDIO_DOWNLOAD_SKIP", "Pas de connexion internet")
+                print("⚠️ Pas de connexion internet - téléchargement impossible")
+                return False
+            
+            print("📥 Début du téléchargement des fichiers manquants...")
+            download_success = True
+            
+            # Télécharger l'annonce par défaut si aucun fichier MP3 dans Annonce
+            if not annonce_has_mp3:
+                announce_url = f"{github_base_url}/annonce/{default_announce_file}"
+                announce_path = os.path.join(annonce_dir, default_announce_file)
+                
+                if self._download_file(announce_url, announce_path, "annonce par défaut"):
+                    self.save_event_log("AUDIO_DOWNLOAD_SUCCESS", f"Annonce par défaut téléchargée: {default_announce_file}")
+                else:
+                    download_success = False
+                    self.save_event_log("AUDIO_DOWNLOAD_ERROR", f"Échec téléchargement annonce: {default_announce_file}")
+            
+            # Télécharger les fichiers spéciaux manquants
+            for special_file in missing_special_files:
+                special_url = f"{github_base_url}/annonces_speciaux/{special_file}"
+                special_path = os.path.join(special_dir, special_file)
+                
+                if self._download_file(special_url, special_path, f"numéro spécial {special_file}"):
+                    self.save_event_log("AUDIO_DOWNLOAD_SUCCESS", f"Fichier spécial téléchargé: {special_file}")
+                else:
+                    download_success = False
+                    self.save_event_log("AUDIO_DOWNLOAD_ERROR", f"Échec téléchargement fichier spécial: {special_file}")
+            
+            if download_success:
+                print("✅ Tous les fichiers audio téléchargés avec succès")
+                return True
+            else:
+                print("⚠️ Téléchargement partiel - certains fichiers ont échoué")
+                return False
+                
+        except Exception as e:
+            error_msg = f"Erreur téléchargement fichiers audio: {e}"
+            print(f"❌ {error_msg}")
+            self.save_event_log("AUDIO_DOWNLOAD_ERROR", error_msg)
+            return False
+    
+    def _check_internet_connection(self):
+        """Vérifie la connectivité internet"""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["ping", "-c", "1", "-W", "3", "github.com"],
+                capture_output=True, 
+                timeout=5
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
+    
+    def _download_file(self, url, destination, description):
+        """
+        Télécharge un fichier depuis une URL
+        Retourne True si succès, False sinon
+        """
+        try:
+            import requests
+            import tempfile
+            
+            print(f"📥 Téléchargement {description}...")
+            
+            # Télécharger avec timeout
+            response = requests.get(url, timeout=30, stream=True)
+            response.raise_for_status()
+            
+            # Vérifier que c'est bien un fichier audio (taille minimale)
+            content_length = response.headers.get('content-length')
+            if content_length and int(content_length) < 1000:  # Moins de 1KB suspect
+                print(f"❌ Fichier {description} trop petit (probablement erreur 404)")
+                return False
+            
+            # Écrire dans un fichier temporaire d'abord
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    temp_file.write(chunk)
+                temp_path = temp_file.name
+            
+            # Vérifier la taille du fichier téléchargé
+            if os.path.getsize(temp_path) < 1000:
+                print(f"❌ Fichier {description} téléchargé trop petit")
+                os.unlink(temp_path)
+                return False
+            
+            # Déplacer vers la destination finale
+            os.rename(temp_path, destination)
+            
+            # Ajuster les permissions
+            os.chmod(destination, 0o644)
+            
+            print(f"✅ {description} téléchargé avec succès")
+            return True
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Erreur réseau pour {description}: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Erreur téléchargement {description}: {e}")
+            return False
+        finally:
+            # Nettoyer le fichier temporaire si il existe encore
+            try:
+                if 'temp_path' in locals() and os.path.exists(temp_path):
+                    os.unlink(temp_path)
+            except:
+                pass
