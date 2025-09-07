@@ -68,3 +68,28 @@ class DisplayManager:
 
         afficher_texte("", "Numéro inconnu", "", taille=16, align="centre")
         print(f"Message numéro inconnu")
+    
+    def show_special_number(self, number):
+        """Affiche le numéro spécial composé"""
+        from config import MSG_SPECIAL_NUMBER
+    
+        print(f"Affichage numéro spécial: {number}")
+        
+        # Utiliser afficher_texte comme les autres méthodes
+        afficher_texte(MSG_SPECIAL_NUMBER, number, "", taille=16, align="centre")
+        self.timevox_displayed = False
+
+    def show_message(self, line1, line2="", line3="", size=12, align="centre"):
+        """Affiche un message personnalisé sur 1 à 3 lignes"""
+        print(f"Affichage message: {line1} | {line2} | {line3}")
+        
+        # Utiliser afficher_texte comme les autres méthodes
+        # Pour 3 lignes, utiliser line1, line2, line3
+        # Pour 2 lignes, mettre line3 vide
+        # Pour 1 ligne, centrer dans line2
+        if line3:
+            afficher_texte(line1, line2, line3, taille=size, align=align)
+        elif line2:
+            afficher_texte(line1, line2, "", taille=size, align=align)
+        else:
+            afficher_texte("", line1, "", taille=size, align=align)

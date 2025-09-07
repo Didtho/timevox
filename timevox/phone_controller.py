@@ -3,6 +3,7 @@
 Contrôleur principal du téléphone TimeVox
 Version avec durée d'enregistrement, volume audio et longueur du numéro principal configurables
 Version avec menu paramètres étendu et gestion des mises à jour
+Version avec support des numéros spéciaux (12, 13, 14, 17, 18)
 """
 
 import time
@@ -18,7 +19,9 @@ import subprocess
 from datetime import datetime
 from params_menu_manager import ParamsMenuManager  # Nouveau nom
 from update_manager import UpdateManager
-
+from special_audio_manager import SpecialAudioManager
+from config import is_special_audio_number
+import pygame
 
 class PhoneController:
     def __init__(self):
@@ -86,13 +89,21 @@ class PhoneController:
 
         # Initialiser le gestionnaire de mises à jour
         self.update_manager = UpdateManager(self.usb_manager)
+        
+        # Gestionnaire des numéros spéciaux (ajouter après les autres gestionnaires)
+        self.special_audio_manager = SpecialAudioManager(
+            self.gpio_manager,
+            self.display_manager, 
+            self.usb_manager,
+            self.audio_manager
+        )
 
         # Affichage des informations de configuration
         config_info = self.usb_manager.get_config_info()
         print(f"=== CONFIGURATION TIMETVOX ===")
         print(
             f"Numéro principal: {config_info['numero_principal']} ({config_info['longueur_numero_principal']} chiffres)")
-        print(f"Numéros de service: {list(SERVICE_NUMBERS.keys())}")  # Maintenant juste ["0000"]
+        print(f"Numéros de service: {list(SERVICE_NUMBERS.keys())}")  # Maintenant inclut les numéros spéciaux
         print(f"Durée d'enregistrement: {config_info['duree_enregistrement']}s")
         print(f"Volume audio: {config_info['volume_audio']}%")
 
@@ -108,6 +119,11 @@ class PhoneController:
                 print(f"  - Conserver original: {'Oui' if filter_config['keep_original'] else 'Non'}")
         except:
             print(f"Filtre vintage: ❓ Non configuré")
+
+        # Affichage statut numéros spéciaux
+        special_status = self.special_audio_manager.check_special_numbers_availability()
+        available_specials = [num for num, info in special_status.items() if info['available']]
+        print(f"Numéros spéciaux disponibles: {available_specials if available_specials else 'Aucun'}")
 
         # Affichage version actuelle
         try:
@@ -194,6 +210,42 @@ class PhoneController:
                 print("❌ Impossible d'enregistrer - clé USB non disponible")
         else:
             print("📞 Téléphone raccroché - pas d'enregistrement")
+
+    def handle_service_number(self, service_number):
+        """
+        Gère les numéros de service et spéciaux
+        """
+        print(f"🔧 Traitement numéro de service: {service_number}")
+        
+        # Vérifier d'abord si c'est un numéro spécial audio
+        if is_special_audio_number(service_number):
+            print(f"🎵 Numéro spécial audio détecté: {service_number}")
+            success = self.special_audio_manager.handle_special_number(service_number)
+            
+            if success:
+                print(f"✅ Numéro spécial {service_number} traité avec succès")
+                # Attendre un peu puis nettoyer l'affichage
+                pygame.time.wait(1000)
+                self.display_manager.clear_display()
+                self.display_manager.show_timevox()
+            else:
+                print(f"❌ Erreur lors du traitement du numéro spécial {service_number}")
+                # En cas d'erreur, retourner à l'état normal après un délai
+                pygame.time.wait(2000)
+                self.display_manager.clear_display()
+                self.display_manager.show_timevox()
+            
+            return True
+        
+        # Gérer les autres numéros de service (0000, etc.)
+        elif service_number == "0000":
+            print("🎛️ Accès au menu de paramètres")
+            self.handle_number_0000()
+            return True
+        
+        else:
+            print(f"❓ Numéro de service non reconnu: {service_number}")
+            return False
 
     def handle_number_0000(self):
         """Traite l'appel au numéro 0000 (accès paramètres)"""
@@ -298,6 +350,20 @@ class PhoneController:
         # Arrêt système
         subprocess.run(["sudo", "shutdown", "-h", "now"])
 
+    def get_system_status(self):
+        """Retourne le statut complet du système incluant les numéros spéciaux"""
+        status = {
+            "timestamp": datetime.now().isoformat(),
+            "phone_state": "on_hook" if self.gpio_manager.is_phone_on_hook() else "off_hook",
+            "dialer": self.dialer_manager.get_status_info(),
+            "special_audio": self.special_audio_manager.get_status_info(),
+            "usb": {
+                "mounted": self.usb_manager.is_usb_mounted(),
+                "mount_path": self.usb_manager.get_usb_mount_path()
+            }
+        }
+        return status
+
     def run(self):
         """Boucle principale du contrôleur"""
         try:
@@ -333,6 +399,9 @@ class PhoneController:
                         if completed_number == numero_principal:
                             print(f"📞 Appel numéro principal: {completed_number}")
                             self.handle_numero_principal()
+                        elif is_special_audio_number(completed_number):
+                            print(f"🎵 Appel numéro spécial: {completed_number}")
+                            self.handle_service_number(completed_number)
                         elif completed_number == "0000":
                             print(f"🔧 Appel paramètres: {completed_number}")
                             self.handle_number_0000()

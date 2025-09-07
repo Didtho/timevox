@@ -1,7 +1,7 @@
 # config.py
 """
 Configuration centralisée pour le projet TimeVox
-Version avec montage USB automatique
+Version avec montage USB automatique et numéros spéciaux
 """
 
 import os
@@ -22,11 +22,16 @@ TIMEOUT_RESET = 10
 # Numéros de service (fixes, courts) - vérifiés dès qu'on atteint leur longueur exacte
 SERVICE_NUMBERS = {
     "0000": {"length": 4, "description": "Paramètres système"},
-    "9999": {"length": 4, "description": "Extinction système"}
+    "9999": {"length": 4, "description": "Extinction système"},
+    "12": {"length": 2, "description": "Numéro spécial 12", "type": "special_audio"},
+    "13": {"length": 2, "description": "Numéro spécial 13", "type": "special_audio"},
+    "14": {"length": 2, "description": "Numéro spécial 14", "type": "special_audio"},
+    "17": {"length": 2, "description": "Numéro spécial 17", "type": "special_audio"},
+    "18": {"length": 2, "description": "Numéro spécial 18", "type": "special_audio"}
 }
 
 # Numéros cibles pour compatibilité (sera enrichi dynamiquement avec le numéro principal)
-TARGET_NUMBERS = ["0000"]
+TARGET_NUMBERS = ["0000", "9999", "12", "13", "14", "17", "18"]
 
 # Chemins de fichiers audio (relatifs au répertoire de l'application)
 SOUNDS_DIR = os.path.join(BASE_DIR, "sounds")
@@ -35,6 +40,7 @@ BIP_FILE = os.path.join(SOUNDS_DIR, "bip.mp3")
 
 # Configuration USB - Point de montage fixe pour le montage automatique
 USB_MOUNT_PATH = "/media/timevox/usb"  # Point de montage fixe pour TimeVox
+SPECIAL_NUMBERS_DIR = "Numeros speciaux"  # Dossier sur la clé USB contenant les fichiers MP3 spéciaux
 RECORD_DURATION = 60  # secondes (valeur par défaut, peut être surchargée par la config USB)
 
 # Configuration audio
@@ -60,8 +66,10 @@ CALL_ENDED_FONT_SIZE = 20
 MSG_TIMEVOX = "TIMEVOX"
 MSG_CALLING = "Vous appelez le"
 MSG_SAVING = "Sauvegarde en cours"
-MSG_CALL_ENDED = "Appel termine"
+MSG_CALL_ENDED = "Appel terminé"
 MSG_SECONDS = "secondes"
+MSG_SPECIAL_NUMBER = "Numéro spécial"
+MSG_PLAYING_AUDIO = "Numéros abrégés"
 
 # Configuration des effets audio
 # ==============================
@@ -92,7 +100,8 @@ def get_project_info():
         "sounds_dir": SOUNDS_DIR,
         "search_correspondant": SEARCH_CORRESPONDANT_FILE,
         "bip": BIP_FILE,
-        "usb_mount_path": USB_MOUNT_PATH
+        "usb_mount_path": USB_MOUNT_PATH,
+        "special_numbers_dir": SPECIAL_NUMBERS_DIR
     }
 
 def get_service_numbers():
@@ -102,3 +111,17 @@ def get_service_numbers():
 def is_service_number(number):
     """Vérifie si un numéro est un numéro de service"""
     return number in SERVICE_NUMBERS
+
+def is_special_audio_number(number):
+    """Vérifie si un numéro est un numéro spécial audio"""
+    return (number in SERVICE_NUMBERS and 
+            SERVICE_NUMBERS[number].get("type") == "special_audio")
+
+def get_special_audio_file_path(number, usb_mount_path):
+    """Retourne le chemin vers le fichier audio spécial pour un numéro donné"""
+    if not is_special_audio_number(number):
+        return None
+    
+    special_dir = os.path.join(usb_mount_path, SPECIAL_NUMBERS_DIR)
+    audio_file = os.path.join(special_dir, f"{number}.mp3")
+    return audio_file if os.path.exists(audio_file) else None

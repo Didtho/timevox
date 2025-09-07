@@ -566,6 +566,10 @@ class USBManager:
         self.rtc_manager = rtc_manager
         print("Gestionnaire RTC mis à jour dans USBManager")
     
+    def get_usb_mount_path(self):
+        """Retourne le chemin de montage USB"""
+        return self.usb_path
+    
     def get_usb_status(self):
         """Retourne le statut détaillé de la clé USB"""
         status = {
